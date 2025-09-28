@@ -6,5 +6,5 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getInitials(email: string) {
-  return email.split("@")[0].slice(0, 2).toUpperCase();
+  return email.split("@")[0].slice(0, 1).toUpperCase();
 }

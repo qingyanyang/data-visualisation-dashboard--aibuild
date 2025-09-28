@@ -49,7 +49,7 @@ export function DashboardHeader({ title, description }: DashboardHeaderProps) {
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  {user?.email && getInitials(user?.email)}
+                  {getInitials(user?.email ?? "example@email.com")}
                 </AvatarFallback>
               </Avatar>
             </Button>
