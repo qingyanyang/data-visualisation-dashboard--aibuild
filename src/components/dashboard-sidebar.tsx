@@ -3,10 +3,12 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart3, Upload, LogOut } from "lucide-react";
+import { BarChart3, Upload, LogOut, Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { useLogout } from "@/hooks/useLogout";
 
 const navigation = [
   {
@@ -29,9 +31,13 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ className }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const { setUser } = useAuth();
   const router = useRouter();
+  const { mutateAsync, isPending } = useLogout();
 
   const handleSignOut = async () => {
+    await mutateAsync();
+    setUser(null);
     router.push("/login");
   };
 
@@ -90,11 +96,16 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
       {/* Footer */}
       <div className="border-t border-sidebar-border p-3">
         <Button
+          disabled={isPending}
           variant="ghost"
           className="w-full justify-start gap-2 h-9 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           onClick={handleSignOut}
         >
-          <LogOut className="h-4 w-4" />
+          {isPending ? (
+            <Loader2Icon className="animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
           Sign Out
         </Button>
       </div>

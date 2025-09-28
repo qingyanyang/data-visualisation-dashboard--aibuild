@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,9 +10,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { getInitials } from "@/lib/utils";
+import { useLogout } from "@/hooks/useLogout";
+import { Loader2Icon } from "lucide-react";
 
 interface DashboardHeaderProps {
   title: string;
@@ -22,10 +23,13 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ title, description }: DashboardHeaderProps) {
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState<string>("example.com");
+  const { user, setUser } = useAuth();
+  const { mutateAsync, isPending } = useLogout();
 
   const handleSignOut = async () => {
-    router.push("/auth/login");
+    await mutateAsync();
+    setUser(null);
+    router.push("/login");
   };
 
   return (
@@ -40,13 +44,12 @@ export function DashboardHeader({ title, description }: DashboardHeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  {userEmail}
+                  {user?.email && getInitials(user?.email)}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -56,13 +59,19 @@ export function DashboardHeader({ title, description }: DashboardHeaderProps) {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">Account</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {userEmail}
+                  {user?.email}
                 </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
-              <span>Sign out</span>
+              <span>
+                {isPending ? (
+                  <Loader2Icon className="animate-spin" />
+                ) : (
+                  "Sign out"
+                )}
+              </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

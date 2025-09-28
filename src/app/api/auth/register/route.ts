@@ -1,4 +1,4 @@
-import { PrismaClient } from "@/generated/prisma"; // since you set custom output
+import { PrismaClient } from "@/generated/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
