@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { isPending, error, mutate } = useLogin();
+  const { isPending, error, mutateAsync } = useLogin();
   const { isSuccess, isPending: isGetMePending } = useMe();
 
   const [email, setEmail] = useState<string>("");
@@ -28,14 +28,8 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     // call login api
-    mutate(
-      { email, password },
-      {
-        onSuccess: () => {
-          router.push("/dashboard");
-        },
-      }
-    );
+    await mutateAsync({ email, password });
+    router.push("/dashboard");
   };
 
   useEffect(() => {
@@ -63,9 +57,9 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              handleLogin();
+              await handleLogin();
             }}
           >
             <div className="flex flex-col gap-6">
