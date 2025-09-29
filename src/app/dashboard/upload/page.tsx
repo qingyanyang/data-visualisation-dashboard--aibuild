@@ -2,12 +2,13 @@
 
 import { DashboardHeader } from "@/components/dashboard-header";
 import { ExcelUpload } from "@/components/excel-upload";
+import { UploadsHistory } from "@/components/uploads-history";
 
-export default function ImportPage() {
+export default function UploadPage() {
   return (
     <>
       <DashboardHeader
-        title="Data Import"
+        title="Data Upload"
         description="Upload and process your Excel files"
       />
 
@@ -16,7 +17,8 @@ export default function ImportPage() {
           {/* Upload Section */}
           <ExcelUpload />
 
-          {/* Uploads History table*/}
+          {/* Uploads History Table */}
+          <UploadsHistory />
         </div>
       </main>
     </>

@@ -12,11 +12,11 @@ export async function PUT(
 
   try {
     const id = Number(params.id);
-    const { name, sku, unit } = await req.json();
+    const { name, sku } = await req.json();
 
     const product = await prisma.product.update({
       where: { id },
-      data: { name, sku, unit },
+      data: { name, sku },
     });
 
     return NextResponse.json(product);

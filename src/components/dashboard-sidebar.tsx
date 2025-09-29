@@ -18,8 +18,8 @@ const navigation = [
     description: "Dashboard overview and key metrics",
   },
   {
-    name: "Data Import",
-    href: "/dashboard/import",
+    name: "Data Upload",
+    href: "/dashboard/upload",
     icon: Upload,
     description: "Upload Excel files",
   },
@@ -48,7 +48,6 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
         className
       )}
     >
-      {/* Header */}
       <div className="flex h-16 items-center border-b border-sidebar-border px-6">
         <div className="flex items-center gap-2">
           <div className="flex flex-col">
@@ -62,7 +61,6 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
         </div>
       </div>
 
-      {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <div className="space-y-1">
           <div className="px-3 py-2">
@@ -93,7 +91,6 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
         </div>
       </ScrollArea>
 
-      {/* Footer */}
       <div className="border-t border-sidebar-border p-3">
         <Button
           disabled={isPending}
