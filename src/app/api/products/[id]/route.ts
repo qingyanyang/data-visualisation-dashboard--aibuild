@@ -1,21 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/tokenCheck";
+import type { NextRequest } from "next/server";
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await verifyToken(req);
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const id = Number(params.id);
-    const { name, sku } = await req.json();
+    const { id } = await context.params;
+    const body = await req.json();
+    const { name, sku } = body;
 
     const product = await prisma.product.update({
-      where: { id },
+      where: { id: Number(id) },
       data: { name, sku },
     });
 
@@ -30,17 +32,19 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const user = await verifyToken(req);
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const id = Number(params.id);
+    const { id } = await context.params;
 
-    await prisma.product.delete({ where: { id } });
+    await prisma.product.delete({
+      where: { id: Number(id) },
+    });
 
     return NextResponse.json({ message: "Product deleted" });
   } catch (err) {
