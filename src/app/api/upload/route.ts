@@ -5,23 +5,27 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import * as z from "zod";
 
+const zeroIfEmpty = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (v === "" || v == null ? 0 : v), schema);
+
 const ExcelRowSchema = z.object({
   ID: z.string().optional(),
   "Product Name": z.string().nonempty("Product Name is required"),
   Date: z.coerce.date(),
-  "Opening Inventory": z.coerce.number().optional(),
-  "Procurement Qty": z.coerce.number().optional(),
-  "Procurement Price": currencyToNumber,
-  "Sales Qty": z.coerce.number().optional(),
-  "Sales Price": currencyToNumber,
+  "Opening Inventory": zeroIfEmpty(z.coerce.number()).optional(),
+  "Procurement Qty": zeroIfEmpty(z.coerce.number()).optional(),
+  "Procurement Price": zeroIfEmpty(currencyToNumber).optional(),
+  "Sales Qty": zeroIfEmpty(z.coerce.number()).optional(),
+  "Sales Price": zeroIfEmpty(currencyToNumber).optional(),
 });
 
 type ExcelRowValidated = z.infer<typeof ExcelRowSchema>;
 
 export async function POST(req: Request) {
   const user = await verifyToken(req);
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const formData = await req.formData();
@@ -31,17 +35,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Read Excel
+    // Read Excel (first sheet)
     const buffer = Buffer.from(await file.arrayBuffer());
     const workbook = XLSX.read(buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet);
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
 
-    // 1. Parse & validate
+    // 1) Parse & validate
     const parsedRows: ExcelRowValidated[] = [];
     const errors: any[] = [];
 
     for (const [i, rawRow] of rows.entries()) {
+      const nameRaw = (rawRow["Product Name"] as string | undefined)?.trim();
+      // Skip rows with no Product Name (silently)
+      if (!nameRaw) continue;
+
       const parsed = ExcelRowSchema.safeParse(rawRow);
       if (!parsed.success) {
         errors.push({ row: i + 2, errors: parsed.error.flatten().fieldErrors });
@@ -57,7 +65,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Resolve products
+    // 2) Resolve products (derive SKUs from names)
     const names = [...new Set(parsedRows.map((r) => r["Product Name"].trim()))];
     const skus = names.map((n) => n.replace(/\s+/g, "").toUpperCase());
 
@@ -78,84 +86,92 @@ export async function POST(req: Request) {
       await prisma.product.createMany({ data: toCreate });
     }
 
-    // Re-fetch all products with IDs
+    // Re-fetch map sku -> id
     const products = await prisma.product.findMany({
       where: { sku: { in: skus } },
     });
     const productMap = new Map(products.map((p) => [p.sku!, p.id]));
 
-    // 3. Prepare DB operations
-    const ops = [];
+    // 3) Prepare DB ops
+    const ops: any[] = [];
+
     for (const row of parsedRows) {
       const productName = row["Product Name"].trim();
       const sku = productName.replace(/\s+/g, "").toUpperCase();
       const productId = productMap.get(sku)!;
       const date = row.Date;
 
-      if (row["Procurement Qty"] && row["Procurement Price"]) {
+      // Safe numbers (all default to 0 if empty/missing)
+      const openQty = Number(row["Opening Inventory"] ?? 0) || 0;
+      const procQty = Number(row["Procurement Qty"] ?? 0) || 0;
+      const procPrice = Number(row["Procurement Price"] ?? 0) || 0;
+      const salesQty = Number(row["Sales Qty"] ?? 0) || 0;
+      const salesPrice = Number(row["Sales Price"] ?? 0) || 0;
+
+      // Upsert Procurement only if we actually have movement + price
+      if (procQty > 0 && procPrice > 0) {
         ops.push(
           prisma.procurement.upsert({
             where: { productId_date: { productId, date } },
             update: {
-              qty: row["Procurement Qty"],
-              unitPrice: row["Procurement Price"],
+              qty: procQty,
+              unitPrice: procPrice,
             },
             create: {
-              productId,
               date,
-              qty: row["Procurement Qty"],
-              unitPrice: row["Procurement Price"],
+              qty: procQty,
+              unitPrice: procPrice,
+              product: { connect: { id: productId } }, // nested relation
             },
           })
         );
       }
 
-      if (row["Sales Qty"] && row["Sales Price"]) {
+      // Upsert Sale only if we actually have movement + price
+      if (salesQty > 0 && salesPrice > 0) {
         ops.push(
           prisma.sale.upsert({
             where: { productId_date: { productId, date } },
             update: {
-              qty: row["Sales Qty"],
-              unitPrice: row["Sales Price"],
+              qty: salesQty,
+              unitPrice: salesPrice,
             },
             create: {
-              productId,
               date,
-              qty: row["Sales Qty"],
-              unitPrice: row["Sales Price"],
+              qty: salesQty,
+              unitPrice: salesPrice,
+              product: { connect: { id: productId } },
             },
           })
         );
       }
 
-      if (row["Opening Inventory"]) {
-        const endInventoryQty =
-          Number(row["Opening Inventory"]) +
-          (Number(row["Procurement Qty"]) ?? 0) -
-          (Number(row["Sales Qty"]) ?? 0);
+      // Always write an inventory snapshot for the day using defaults (0)
+      const closingQty = openQty + procQty - salesQty;
 
-        ops.push(
-          prisma.inventorySnapshot.upsert({
-            where: { productId_date: { productId, date } },
-            update: {
-              openingQty: row["Opening Inventory"],
-              closingQty: endInventoryQty,
-            },
-            create: {
-              productId,
-              date,
-              openingQty: row["Opening Inventory"],
-              closingQty: endInventoryQty,
-            },
-          })
-        );
-      }
+      ops.push(
+        prisma.inventorySnapshot.upsert({
+          where: { productId_date: { productId, date } },
+          update: {
+            openingQty: openQty,
+            closingQty,
+          },
+          create: {
+            date,
+            openingQty: openQty,
+            closingQty,
+            product: { connect: { id: productId } },
+          },
+        })
+      );
     }
 
-    // 4. Run DB operations in one transaction
-    await prisma.$transaction(ops);
+    // 4) Transaction
+    if (ops.length > 0) {
+      await prisma.$transaction(ops);
+    }
 
-    // 5. Record upload history
+    // 5) Upload history
     await prisma.uploadHistory.create({
       data: {
         fileName: file.name,
@@ -169,7 +185,7 @@ export async function POST(req: Request) {
     if (errors.length > 0) {
       return NextResponse.json(
         {
-          message: "Upload finished with some skipped rows",
+          message: "Upload finished with some skipped/invalid rows",
           processed: parsedRows.length,
           errors,
         },

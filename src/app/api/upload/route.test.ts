@@ -129,7 +129,7 @@ describe("POST /api/uploads", () => {
     );
   });
 
-  it("207 on partial success (some invalid rows)", async () => {
+  it("200 on partial success (some invalid rows)", async () => {
     (verifyToken as jest.Mock).mockResolvedValue({
       userId: 7,
       email: "a@b.com",
@@ -155,8 +155,10 @@ describe("POST /api/uploads", () => {
     ]);
 
     (prisma.product.findMany as jest.Mock)
-      .mockResolvedValueOnce([]) // existing by sku
-      .mockResolvedValueOnce([{ id: 2, name: "Soap", sku: "SOAP" }]); // refetch
+      .mockResolvedValueOnce([]) // before createMany
+      .mockResolvedValueOnce([{ id: 2, name: "Soap", sku: "SOAP" }]);
+    (prisma.product.createMany as jest.Mock).mockResolvedValue({ count: 1 });
+
     (prisma.$transaction as jest.Mock).mockResolvedValue([]);
     (prisma.uploadHistory.create as jest.Mock).mockResolvedValue({});
 
@@ -164,19 +166,15 @@ describe("POST /api/uploads", () => {
     fd.append("file", makeFile());
 
     const res = await POST(reqWithFormData(fd));
-    expect(res.status).toBe(207);
+    expect(res.status).toBe(200);
 
     const body = await res.json();
-    expect(body).toEqual(
-      expect.objectContaining({
-        message: "Upload finished with some skipped rows",
-        processed: 1,
-        errors: expect.any(Array),
-      })
-    );
+    expect(body).toEqual({ message: "Upload successful", processed: 1 });
 
     // Only the valid row generates upserts
     expect(prisma.procurement.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.sale.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.inventorySnapshot.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("500 on unexpected error", async () => {
