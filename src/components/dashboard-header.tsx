@@ -33,7 +33,7 @@ export function DashboardHeader({ title, description }: DashboardHeaderProps) {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-background px-6">
+    <header className="flex h-16 items-center justify-between border-b border-black bg-background px-6">
       <div className="flex items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
@@ -54,7 +54,7 @@ export function DashboardHeader({ title, description }: DashboardHeaderProps) {
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuContent className="w-56 bg-white" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">Account</p>
