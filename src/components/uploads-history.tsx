@@ -2,14 +2,6 @@
 
 import { useState } from "react";
 import { useUploadHistory } from "@/hooks/useUploadHistory";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
-import { FileSpreadsheet } from "lucide-react";
 import Spinner from "./spinner";
 import clsx from "clsx";
 import SectionLayout from "./section-layout";

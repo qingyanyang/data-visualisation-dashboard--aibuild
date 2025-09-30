@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("1h")
+    .setExpirationTime("10h")
     .sign(secret);
 
   // response + cookie
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    maxAge: 60 * 60,
+    maxAge: 60 * 60 * 10,
   });
 
   return response;

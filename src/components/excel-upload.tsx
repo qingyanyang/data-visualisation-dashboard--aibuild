@@ -3,24 +3,12 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Upload,
-  FileSpreadsheet,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-} from "lucide-react";
+import { Upload, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { useExcelUpload } from "@/hooks/useExcelUpload";
 import SectionLayout from "./section-layout";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface UploadStatus {
   status: "idle" | "uploading" | "processing" | "success" | "error";
@@ -30,6 +18,7 @@ interface UploadStatus {
 }
 
 export function ExcelUpload() {
+  const queryClient = useQueryClient();
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({
     status: "idle",
     progress: 0,
@@ -71,8 +60,11 @@ export function ExcelUpload() {
         });
 
         const result = await uploadExcel(file);
-        console.log("result", result);
         if (result.success) {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["uploadHistory"] }),
+            queryClient.invalidateQueries({ queryKey: ["chartData"] }),
+          ]);
           setUploadStatus({
             status: "success",
             progress: 100,

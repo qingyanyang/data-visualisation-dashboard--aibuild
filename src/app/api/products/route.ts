@@ -2,36 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/tokenCheck";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url);
-    const search = searchParams.get("search") || "";
-    const page = Number(searchParams.get("page") || 1);
-    const limit = Number(searchParams.get("limit") || 10);
+    const products = await prisma.product.findMany({
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, sku: true },
+    });
 
-    const skip = (page - 1) * limit;
-
-    const where = search
-      ? {
-          OR: [
-            { name: { contains: search, mode: "insensitive" as const } },
-            { sku: { contains: search, mode: "insensitive" as const } },
-          ],
-        }
-      : {};
-
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-        select: { id: true, name: true, sku: true },
-      }),
-      prisma.product.count({ where }),
-    ]);
-
-    return NextResponse.json({ page, limit, total, products });
+    return NextResponse.json({ products });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

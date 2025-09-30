@@ -58,13 +58,8 @@ export async function POST(req: Request) {
     }
 
     // 2. Resolve products (bulk ensure)
-    const skus = [
-      ...new Set(
-        parsedRows.map((r) =>
-          r["Product Name"].trim().replace(/\s+/g, "").toUpperCase()
-        )
-      ),
-    ];
+    const names = [...new Set(parsedRows.map((r) => r["Product Name"].trim()))];
+    const skus = names.map((n) => n.replace(/\s+/g, "").toUpperCase());
 
     const existingProducts = await prisma.product.findMany({
       where: { sku: { in: skus } },
@@ -74,7 +69,8 @@ export async function POST(req: Request) {
     const toCreate = skus
       .filter((sku) => !existingSkus.has(sku))
       .map((sku) => ({
-        name: sku, // fallback name = SKU
+        name:
+          names.find((n) => n.replace(/\s+/g, "").toUpperCase() === sku) ?? sku,
         sku,
       }));
 
@@ -134,9 +130,9 @@ export async function POST(req: Request) {
 
       if (row["Opening Inventory"]) {
         const endInventoryQty =
-          row["Opening Inventory"] +
-          (row["Procurement Qty"] ?? 0) -
-          (row["Sales Qty"] ?? 0);
+          Number(row["Opening Inventory"]) +
+          (Number(row["Procurement Qty"]) ?? 0) -
+          (Number(row["Sales Qty"]) ?? 0);
 
         ops.push(
           prisma.inventorySnapshot.upsert({
