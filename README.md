@@ -64,3 +64,8 @@ cp .env.example .env
 | install dependencies | `npm install`  |
 | run locally          | `npm run dev`  |
 | run test             | `npm run test` |
+
+### Copyright / Usage
+
+© 2025 Qingyan (Chelsea) Yang. Provided solely for interview evaluation. **No commercial use, redistribution, or integration** without written consent.
+
