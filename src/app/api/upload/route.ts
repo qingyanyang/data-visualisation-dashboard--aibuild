@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Resolve products (bulk ensure)
+    // 2. Resolve products
     const names = [...new Set(parsedRows.map((r) => r["Product Name"].trim()))];
     const skus = names.map((n) => n.replace(/\s+/g, "").toUpperCase());
 

@@ -4,11 +4,27 @@ import { SignJWT } from "jose";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
-  const { email, password } = await req.json();
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const email = (body?.email ?? "").toLowerCase().trim();
+  const password = body?.password ?? "";
+
+  // Basic validation
+  if (!email || !password) {
+    return NextResponse.json(
+      { error: "Email and password are required" },
+      { status: 400 }
+    );
+  }
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
   const isValid = await bcrypt.compare(password, user.hashedPassword);

@@ -12,6 +12,7 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { SearchableMultiSelect } from "@/components/searchable-multi-select";
 import { MatrixSelect } from "@/components/matrix-select";
 import SectionLayout from "@/components/section-layout";
+import { format } from "date-fns";
 
 export type MetricType = "procurement" | "sales" | "endInventory";
 
@@ -26,7 +27,6 @@ export default function DashboardPage() {
   const { setUser } = useAuth();
   const router = useRouter();
 
-  // --- Local filters ---
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
@@ -56,19 +56,18 @@ export default function DashboardPage() {
     }
   };
 
-  // --- Chart Data ---
   const {
     data: chartData,
     isLoading: isChartLoading,
     error,
   } = useChartData({
     productIds: selectedProducts,
-    from: dateRange.from?.toISOString().slice(0, 10) ?? "",
-    to: dateRange.to?.toISOString().slice(0, 10) ?? "",
+    from: dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "",
+    to: dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "",
     metrics: selectedMetrics,
   });
 
-  // --- Auth Handling ---
+  // protect route
   useEffect(() => {
     if (isError) {
       setUser(null);
@@ -82,16 +81,16 @@ export default function DashboardPage() {
     }
   }, [data]);
 
+  // switch between multiple metric selection and single metric selection
   useEffect(() => {
     if (selectedProducts.length > 1) {
-      // multiple products → force to single metric "procurement"
-      setSelectedMetrics(["procurement"]);
+      setSelectedMetrics(["sales"]);
     } else {
-      // single or no product → allow all metrics
       setSelectedMetrics(["procurement", "sales", "endInventory"]);
     }
   }, [selectedProducts]);
 
+  // avoid hydration issue
   useEffect(() => {
     const today = new Date();
     setDateRange({ from: today, to: today });
@@ -141,9 +140,9 @@ export default function DashboardPage() {
           {isChartLoading ? (
             <Spinner />
           ) : error ? (
-            <div className="text-red-600">Failed to load chart data</div>
+            <div className="text-destructive">Failed to load chart data</div>
           ) : selectedProducts.length === 0 ? (
-            <div className="text-gray-600">
+            <div className="text-muted-foreground">
               Please select at least one product.
             </div>
           ) : chartData?.products.every((p) => p.data.length === 0) ? (

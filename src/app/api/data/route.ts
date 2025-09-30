@@ -1,39 +1,41 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function utcDateFromYMD(ymd: string) {
+  return new Date(ymd + "T00:00:00.000Z");
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const productIds = searchParams.get("productIds");
     const from = searchParams.get("from");
     const to = searchParams.get("to");
-    const metrics = searchParams.get("metrics"); // e.g. "procurement,sales,endInventory"
+    const metrics = searchParams.get("metrics");
 
     if (!productIds || !from || !to || !metrics) {
       return NextResponse.json({ error: "Missing params" }, { status: 400 });
     }
 
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
-    // inclusive end-of-day for DB filtering
-    toDate.setHours(23, 59, 59, 999);
+    // Parse as UTC
+    const fromUTC = utcDateFromYMD(from);
+    const toUTC = utcDateFromYMD(to);
+    const toEndOfDayUTC = new Date(toUTC.getTime() + (MS_PER_DAY - 1)); // 23:59:59.999Z
 
     const productIdArray = productIds.split(",").map((id) => Number(id));
     const metricArray = metrics.split(","); // ["procurement","sales","endInventory"]
 
-    // validate days (inclusive)
     const days =
-      Math.floor(
-        (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)
-      ) + 1;
-
+      Math.floor((toUTC.getTime() - fromUTC.getTime()) / MS_PER_DAY) + 1;
     if (days < 1) {
       return NextResponse.json(
         { error: "Invalid date range: 'to' must be after or equal to 'from'" },
         { status: 400 }
       );
     }
-    if (days > 8) {
+    if (days > 7) {
       return NextResponse.json(
         { error: "Max 7 days allowed" },
         { status: 400 }
@@ -46,27 +48,19 @@ export async function GET(req: Request) {
       select: { id: true, name: true },
     });
 
-    // Build an inclusive list of date strings YYYY-MM-DD
+    // Build inclusive list of YYYY-MM-DD using UTC
     const dateStrings: string[] = [];
-    const start = new Date(fromDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(toDate);
-    end.setHours(0, 0, 0, 0);
-    for (
-      let d = new Date(start);
-      d <= end;
-      d = new Date(d.getTime() + 24 * 60 * 60 * 1000)
-    ) {
-      dateStrings.push(d.toISOString().slice(0, 10));
+    for (let t = fromUTC.getTime(); t <= toUTC.getTime(); t += MS_PER_DAY) {
+      dateStrings.push(new Date(t).toISOString().slice(0, 10));
     }
 
-    // Prefetch rows for selected metrics only
+    // Prefetch selected metrics only (UTC range)
     const [procurements, sales, snapshots] = await Promise.all([
       metricArray.includes("procurement")
         ? prisma.procurement.findMany({
             where: {
               productId: { in: productIdArray },
-              date: { gte: fromDate, lte: toDate },
+              date: { gte: fromUTC, lte: toEndOfDayUTC },
             },
             select: { productId: true, date: true, qty: true, unitPrice: true },
           })
@@ -75,7 +69,7 @@ export async function GET(req: Request) {
         ? prisma.sale.findMany({
             where: {
               productId: { in: productIdArray },
-              date: { gte: fromDate, lte: toDate },
+              date: { gte: fromUTC, lte: toEndOfDayUTC },
             },
             select: { productId: true, date: true, qty: true, unitPrice: true },
           })
@@ -84,7 +78,7 @@ export async function GET(req: Request) {
         ? prisma.inventorySnapshot.findMany({
             where: {
               productId: { in: productIdArray },
-              date: { gte: fromDate, lte: toDate },
+              date: { gte: fromUTC, lte: toEndOfDayUTC },
             },
             select: { productId: true, date: true, closingQty: true },
           })
@@ -100,7 +94,7 @@ export async function GET(req: Request) {
       endInventoryQty?: number;
     };
 
-    // Pre-fill every product & date with zeros for the selected metrics
+    // Pre-fill zeros for requested metrics
     const grouped: Record<number, Record<string, DayData>> = {};
     for (const p of products) {
       grouped[p.id] = {};
@@ -108,11 +102,11 @@ export async function GET(req: Request) {
         const base: DayData = { date: ds };
         if (metricArray.includes("procurement")) {
           base.procurementQty = 0;
-          base.procurementUnitPrice = 0; // client can format as 0.00
+          base.procurementUnitPrice = 0;
         }
         if (metricArray.includes("sales")) {
           base.salesQty = 0;
-          base.salesUnitPrice = 0; // client can format as 0.00
+          base.salesUnitPrice = 0;
         }
         if (metricArray.includes("endInventory")) {
           base.endInventoryQty = 0;
@@ -121,7 +115,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Overwrite zeros with actual rows (unique per (productId,date))
+    // Merge real rows — normalize to UTC YYYY-MM-DD
     if (metricArray.includes("procurement")) {
       for (const r of procurements) {
         const ds = r.date.toISOString().slice(0, 10);
@@ -151,7 +145,6 @@ export async function GET(req: Request) {
       }
     }
 
-    // Build result preserving date order
     const result = products.map((p) => ({
       productId: p.id,
       productName: p.name,
