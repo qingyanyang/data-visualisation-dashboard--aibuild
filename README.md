@@ -32,8 +32,8 @@ Log in with email + password (JWT httpOnly cookie)
 
 # Trade-offs
 
-- **Strict upload schema vs. real-world messiness:**  
-  For the challenge, the Excel upload requires the **exact column schema** (simple, deterministic, easy to validate). In production, I’d add a preprocessing pipeline to handle messy/varied inputs—header normalization, unit/currency parsing, date normalization, SKU/name mapping, deduplication, and validation. This could be rule-based first, with an **AI-assisted step** to interpret ambiguous headers and reshape semi-structured sheets into a strict schema **before** persistence. (Guardrails would include audit logs, confidence scores, and fallbacks to human review for low-confidence rows.)
+## Strict upload schema vs real-world messiness: 
+For the challenge, the Excel upload requires the **exact column schema** (simple, deterministic, easy to validate). In a real app, I may use an AI pre-processor to clean and normalize the file before saving—map headers, parse units/currency, standardize dates, and deduplicate—so the data is structured correctly before persistence.
 
 # Prepare
 
@@ -46,16 +46,18 @@ cp .env.example .env
 ```
 
 ## Testing Account
+| field                | value               |
+| -------------------- | ------------------- |
+| email                | `test@example.com`  |
+| password             | `codingtest123`     |
 
-| email | test@example.com |
-| password | codingtest123 |
 
 ## Testing sample files
 
-sample_data_01.xlsx
-sample_data_02.xlsx
+- sample_data_01.xlsx
+- sample_data_02.xlsx
 
-# Commands
+## Commands
 
 | name                 | commands       |
 | -------------------- | -------------- |
