@@ -26,13 +26,14 @@ export async function GET(req: Request) {
       Math.floor(
         (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)
       ) + 1;
+
     if (days < 1) {
       return NextResponse.json(
         { error: "Invalid date range: 'to' must be after or equal to 'from'" },
         { status: 400 }
       );
     }
-    if (days > 7) {
+    if (days > 8) {
       return NextResponse.json(
         { error: "Max 7 days allowed" },
         { status: 400 }

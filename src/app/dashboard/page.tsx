@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  DailyData,
-  ProductComparisonChart,
-} from "@/components/charts/product-comparison-chart";
+import { ProductComparisonChart } from "@/components/charts/product-comparison-chart";
 import { DashboardHeader } from "@/components/dashboard-header";
 import Spinner from "@/components/spinner";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,10 +27,10 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // --- Local filters ---
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const today = new Date();
-    return { from: today, to: today };
-  });
+  const [dateRange, setDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>(() => ({ from: undefined, to: undefined }));
 
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<MetricType[]>([
@@ -95,6 +92,11 @@ export default function DashboardPage() {
     }
   }, [selectedProducts]);
 
+  useEffect(() => {
+    const today = new Date();
+    setDateRange({ from: today, to: today });
+  }, []);
+
   if (isLoading) return <Spinner />;
 
   return (
@@ -112,11 +114,13 @@ export default function DashboardPage() {
                   them, when, how many rows were processed, and their final status.`}
         >
           <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <DateRangePicker
-              value={dateRange}
-              onChange={handleDateRangeChange}
-              maxDays={30}
-            />
+            {(dateRange.from || dateRange.to) && (
+              <DateRangePicker
+                value={dateRange}
+                onChange={handleDateRangeChange}
+                maxDays={7}
+              />
+            )}
 
             <SearchableMultiSelect
               label="Products"
